@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <title>🇻🇪 BCVFastApp • Tasas BCV en tiempo real</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body {
+            background: linear-gradient(145deg, #f0f5fa 0%, #e6eef7 100%);
+            min-height: 100vh;
+        }
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: linear-gradient(145deg, #0b1a2a 0%, #112435 100%);
+            }
+            .glass-card {
+                background: rgba(20, 35, 50, 0.75) !important;
+                backdrop-filter: blur(16px);
+                border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                color: #eef3f9;
+            }
+            .bg-white\/90, .bg-white\/80, .bg-white\/50, .bg-white\/40, .bg-white\/30, .bg-white\/20 {
+                background: rgba(20, 35, 50, 0.7) !important;
+                color: #eef3f9;
+            }
+            .text-\[\#1f4e6e\], .text-\[\#0c3e5c\], .text-\[\#1f6392\] {
+                color: #bdd3e8 !important;
+            }
+            .currency-option.active {
+                background: linear-gradient(135deg, #ff9f2e, #ff7b00) !important;
+                color: white;
+            }
+            input {
+                color: white !important;
+            }
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 20px 40px -12px rgba(0, 20, 40, 0.25);
+        }
+        .currency-option {
+            transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+            border: 2px solid transparent;
+        }
+        .currency-option.active {
+            background: linear-gradient(135deg, #ffb347, #ff8c1a);
+            color: white;
+            border-color: #ffb347;
+            box-shadow: 0 8px 18px rgba(255, 140, 26, 0.25);
+            transform: scale(1.02);
+        }
+        .copy-btn:active {
+            background: rgba(0,0,0,0.05);
+            transform: scale(0.9);
+        }
+        input {
+            font-size: 18px;
+            background: transparent;
+        }
+        input:focus {
+            outline: none;
+        }
+        .ripple-effect {
+            transition: transform 0.1s;
+        }
+        .ripple-effect:active {
+            transform: scale(0.97);
+        }
+        .status-badge {
+            font-size: 0.65rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 2rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .status-ok { background: #d1fae5; color: #065f46; }
+        .status-warning { background: #fed7aa; color: #9b2c1d; }
+        .dark .status-ok { background: #064e3b; color: #a7f3d0; }
+        .dark .status-warning { background: #7c2d12; color: #fed7aa; }
+        .alert-banner {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.75rem;
+        }
+        .dark .alert-banner {
+            background: #451a03;
+            border-left-color: #fbbf24;
+            color: #fde68a;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+<div class="max-w-xl w-full glass-card rounded-[2.5rem] overflow-hidden transition-all duration-300">
+    
+    <!-- Header -->
+    <div class="relative px-6 pt-6 pb-4">
+        <div class="flex justify-between items-start">
+            <div class="flex items-center gap-2">
+                <div class="bg-gradient-to-br from-[#1f6392] to-[#2a7fae] w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg shadow-blue-900/20">⚡</div>
+                <div>
+                    <h1 class="text-2xl font-extrabold tracking-tight text-[#0f3a54] dark:text-white">BCVFastApp</h1>
+                    <p class="text-xs font-medium text-[#4a7a9e] flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> 
+                        Tasas oficiales BCV · Sin APIs externas
+                    </p>
+                </div>
+            </div>
+            <div class="bg-white/40 dark:bg-slate-800/40 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs font-semibold text-[#1f6392] shadow-sm">
+                <i class="far fa-clock mr-1"></i><span id="relative-time">Ahora</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta si el backend no está disponible -->
+    <div id="backend-alert" class="px-5 hidden">
+        <div class="alert-banner flex items-center gap-2">
+            <i class="fas fa-exclamation-triangle text-amber-600"></i>
+            <span>⚠️ No se pudo conectar al servidor backend. Asegúrate de que <strong>app.py</strong> esté corriendo en <strong>http://localhost:5000</strong>.</span>
+        </div>
+    </div>
+
+    <!-- Panel de tasas (solo USD y EUR) -->
+    <div class="px-5 pb-2">
+        <div class="grid grid-cols-2 gap-2">
+            <div class="bg-white/40 dark:bg-slate-800/40 rounded-2xl p-3 backdrop-blur-sm border border-white/20">
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-[#3d6a8f] mb-1"><i class="fas fa-dollar-sign"></i> USD</div>
+                <div class="text-xl font-extrabold text-[#0c3e5c] dark:text-white" id="usd-rate">--,--</div>
+                <div class="flex items-center justify-between mt-1">
+                    <span class="text-[10px] font-medium text-gray-500">BCV oficial</span>
+                </div>
+            </div>
+            <div class="bg-white/40 dark:bg-slate-800/40 rounded-2xl p-3 backdrop-blur-sm border border-white/20">
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-[#3d6a8f] mb-1"><i class="fas fa-euro-sign"></i> EUR</div>
+                <div class="text-xl font-extrabold text-[#0c3e5c] dark:text-white" id="eur-rate">--,--</div>
+                <div class="flex items-center justify-between mt-1">
+                    <span class="text-[10px] font-medium text-gray-500">BCV oficial</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conversor principal (sin USDT) -->
+    <div class="p-5">
+        <div class="flex justify-center gap-2 mb-6">
+            <div class="currency-option cursor-pointer rounded-2xl bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm px-5 py-2.5 flex items-center gap-2 shadow-sm transition-all active" data-currency="USD">
+                <span class="text-xl font-bold">$</span>
+                <span class="text-sm font-semibold">Dólar</span>
+            </div>
+            <div class="currency-option cursor-pointer rounded-2xl bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm px-5 py-2.5 flex items-center gap-2 shadow-sm transition-all" data-currency="EUR">
+                <span class="text-xl font-bold">€</span>
+                <span class="text-sm font-semibold">Euro</span>
+            </div>
+        </div>
+
+        <!-- Cantidad origen -->
+        <div class="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-3xl border border-white/30 p-4 shadow-inner">
+            <div class="flex justify-start items-center mb-1">
+                <span class="text-xs font-semibold uppercase tracking-wider text-[#5a7c9e]" id="origin-label">Cantidad en USD</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="font-extrabold text-2xl text-[#1f6392] bg-blue-50/50 dark:bg-blue-900/30 px-3 py-1.5 rounded-2xl" id="origin-symbol">$</span>
+                <input type="text" id="origin-amount" value="1" inputmode="decimal" class="w-full bg-transparent text-3xl font-bold outline-none text-[#0c3e5c] dark:text-white placeholder:text-gray-400">
+                <button class="copy-btn text-[#7c97b3] hover:text-[#ffb347] p-2" data-copy-target="origin-amount" title="Copiar"><i class="fas fa-copy text-xl"></i></button>
+            </div>
+            <div class="text-right text-xs text-gray-500 mt-1" id="origin-rate-hint">1 USD = -- Bs</div>
+        </div>
+
+        <div class="flex justify-center my-1">
+            <div class="bg-white dark:bg-slate-700 rounded-full p-1.5 shadow-sm border border-white/30">
+                <i class="fas fa-arrow-down text-[#ffb347] text-xs"></i>
+            </div>
+        </div>
+
+        <!-- Equivalente en bolívares -->
+        <div class="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-3xl border border-white/30 p-4 shadow-inner">
+            <div class="mb-1">
+                <span class="text-xs font-semibold uppercase tracking-wider text-[#5a7c9e]">Equivalente en Bolívares 🇻🇪</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="font-extrabold text-2xl text-[#1f6392] bg-blue-50/50 dark:bg-blue-900/30 px-3 py-1.5 rounded-2xl">Bs.</span>
+                <input type="text" id="ves-amount" value="" inputmode="decimal" class="w-full bg-transparent text-3xl font-bold outline-none text-[#0c3e5c] dark:text-white placeholder:text-gray-400">
+                <button class="copy-btn text-[#7c97b3] hover:text-[#ffb347] p-2" data-copy-target="ves-amount" title="Copiar"><i class="fas fa-copy text-xl"></i></button>
+            </div>
+            <div class="text-right text-xs text-gray-500 mt-1" id="ves-rate-hint">1 Bs = -- USD</div>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+            <button id="refreshBtn" class="ripple-effect flex-1 bg-gradient-to-r from-[#1f6392] to-[#2a7fae] py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 hover:shadow-xl transition">
+                <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+            <button id="shareBtn" class="ripple-effect bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm py-3.5 px-5 rounded-2xl font-semibold text-[#1f6392] border border-white/30 flex items-center gap-2 shadow-sm">
+                <i class="fas fa-share-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="text-center text-[10px] font-medium text-[#6a8bb0] py-3 border-t border-white/20 bg-white/20 dark:bg-slate-800/20">
+        <i class="fas fa-database mr-1"></i> Fuente: BCV (scraper-bcv)
+        <div id="api-status" class="text-[9px] mt-0.5 opacity-80">Conectando al backend...</div>
+        <p><i>Diseñado por Yerson Magallanes</i></p>
+    </div>
+</div>
+
+<div id="copy-toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#0f2c40] text-white px-6 py-3 rounded-full text-sm font-medium shadow-2xl transition-all duration-300 opacity-0 pointer-events-none z-50 flex items-center gap-2">
+    <i class="fas fa-check-circle text-green-400"></i> <span>Copiado al portapapeles</span>
+</div>
+
+<script>
+    (function() {
+        "use strict";
+
+        // ---------- DOM ----------
+        const usdRateSpan = document.getElementById('usd-rate');
+        const eurRateSpan = document.getElementById('eur-rate');
+        const relativeTimeSpan = document.getElementById('relative-time');
+        const originAmountInput = document.getElementById('origin-amount');
+        const vesAmountInput = document.getElementById('ves-amount');
+        const originSymbolSpan = document.getElementById('origin-symbol');
+        const originLabel = document.getElementById('origin-label');
+        const originRateHint = document.getElementById('origin-rate-hint');
+        const vesRateHint = document.getElementById('ves-rate-hint');
+        const currencyOptions = document.querySelectorAll('.currency-option');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const shareBtn = document.getElementById('shareBtn');
+        const apiStatusDiv = document.getElementById('api-status');
+        const backendAlert = document.getElementById('backend-alert');
+
+        // ---------- Estado ----------
+        let usdRate = null, eurRate = null;
+        let currentCurrency = 'USD';
+        let isLoading = false;
+        let lastUpdateTimestamp = null;
+
+        // ---------- Helper: formateo números ----------
+        function parseVenezuelanNumber(str) {
+            if (!str) return NaN;
+            let clean = str.trim().replace(/[^0-9.,]/g, '');
+            if (clean === '') return NaN;
+            let hasComma = clean.includes(',');
+            let hasDot = clean.includes('.');
+            if (hasComma && hasDot) {
+                let lastComma = clean.lastIndexOf(',');
+                let lastDot = clean.lastIndexOf('.');
+                if (lastComma > lastDot) {
+                    clean = clean.replace(/\./g, '');
+                    clean = clean.replace(',', '.');
+                } else {
+                    clean = clean.replace(/,/g, '');
+                }
+            } else if (hasComma) {
+                let parts = clean.split(',');
+                if (parts.length > 2) {
+                    let last = parts.pop();
+                    clean = parts.join('') + '.' + last;
+                } else {
+                    clean = clean.replace(',', '.');
+                }
+            } else if (hasDot) {
+                let parts = clean.split('.');
+                if (parts.length > 2) {
+                    let last = parts.pop();
+                    clean = parts.join('') + '.' + last;
+                }
+            }
+            let num = parseFloat(clean);
+            return isNaN(num) ? 0 : num;
+        }
+        const format = (n, d=2) => (n == null || isNaN(n)) ? '' : new Intl.NumberFormat('es-VE', { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
+        
+        function setupInputField(inputElem) {
+            inputElem.addEventListener('input', function() {
+                let original = this.value;
+                let filtered = original.replace(/[^0-9.,]/g, '');
+                let dotCount = (filtered.match(/\./g) || []).length;
+                let commaCount = (filtered.match(/,/g) || []).length;
+                if (dotCount > 1 || commaCount > 1 || (dotCount > 0 && commaCount > 0)) {
+                    let lastSep = Math.max(filtered.lastIndexOf('.'), filtered.lastIndexOf(','));
+                    let before = filtered.substring(0, lastSep).replace(/[.,]/g, '');
+                    let after = filtered.substring(lastSep + 1).replace(/[.,]/g, '');
+                    filtered = before + '.' + after;
+                }
+                let display = filtered.replace(',', '.').replace('.', ',');
+                if (display !== original) this.value = display;
+                if (this.id === 'origin-amount') updateFromOrigin();
+                else updateFromVes();
+            });
+            inputElem.addEventListener('blur', function() {
+                let num = parseVenezuelanNumber(this.value);
+                if (isNaN(num)) num = 0;
+                this.value = format(num, 2);
+                if (this.id === 'origin-amount') updateFromOrigin();
+                else updateFromVes();
+            });
+        }
+
+        const getRate = () => ({ USD: usdRate, EUR: eurRate }[currentCurrency]);
+
+        function updateUI() {
+            const rate = getRate();
+            if (rate && !isNaN(rate)) {
+                originRateHint.innerText = `1 ${currentCurrency} = ${format(rate, 2)} Bs`;
+                vesRateHint.innerText = `1 Bs = ${format(1/rate, 6)} ${currentCurrency}`;
+            } else {
+                originRateHint.innerText = 'Tasa no disponible';
+                vesRateHint.innerText = '';
+            }
+            updateFromOrigin();
+        }
+
+        function updateFromOrigin() {
+            const rate = getRate();
+            if (!rate || isNaN(rate)) { vesAmountInput.value = ''; return; }
+            let val = parseVenezuelanNumber(originAmountInput.value);
+            if (isNaN(val)) val = 0;
+            vesAmountInput.value = format(val * rate, 2);
+        }
+
+        function updateFromVes() {
+            const rate = getRate();
+            if (!rate || rate === 0 || isNaN(rate)) { originAmountInput.value = ''; return; }
+            let val = parseVenezuelanNumber(vesAmountInput.value);
+            if (isNaN(val)) val = 0;
+            originAmountInput.value = format(val / rate, 2);
+        }
+
+        let updating = false;
+        originAmountInput.addEventListener('input', () => { if(!updating) { updating=true; updateFromOrigin(); updating=false; } });
+        vesAmountInput.addEventListener('input', () => { if(!updating) { updating=true; updateFromVes(); updating=false; } });
+
+        function setActiveCurrency(cur) {
+            currentCurrency = cur;
+            currencyOptions.forEach(opt => opt.classList.toggle('active', opt.dataset.currency === cur));
+            const sym = { USD: '$', EUR: '€' };
+            const label = { USD: 'USD', EUR: 'EUR' };
+            originSymbolSpan.innerText = sym[cur];
+            originLabel.innerText = `Cantidad en ${label[cur]}`;
+            updateUI();
+        }
+        currencyOptions.forEach(opt => opt.addEventListener('click', () => setActiveCurrency(opt.dataset.currency)));
+
+        // ---------- Cargar tasas desde el backend Flask ----------
+        async function loadRates(showToastMsg = false) {
+            if (isLoading) return;
+            isLoading = true;
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Obteniendo tasas del BCV...';
+            apiStatusDiv.innerHTML = '🔄 Consultando servidor local...';
+            
+            try {
+                const response = await fetch('https://calven.onrender.com/api/tasas', {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Asignar tasas desde el backend
+                usdRate = data.USD;
+                eurRate = data.EUR;
+                
+                if (usdRate == null || eurRate == null) {
+                    throw new Error('El backend no devolvió USD o EUR');
+                }
+                
+                // Actualizar UI
+                usdRateSpan.innerText = format(usdRate, 2) + ' Bs';
+                eurRateSpan.innerText = format(eurRate, 2) + ' Bs';
+                
+                lastUpdateTimestamp = new Date();
+                updateRelativeTime();
+                updateUI();
+                apiStatusDiv.innerHTML = `✅ Tasas BCV del ${data.fecha || 'hoy'} · servidor local`;
+                
+                // Ocultar alerta de backend si estaba visible
+                backendAlert.classList.add('hidden');
+                
+                if (showToastMsg) {
+                    showToast('✓ Tasas actualizadas desde el BCV', false);
+                }
+            } catch (err) {
+                console.error('Error cargando tasas desde backend:', err);
+                apiStatusDiv.innerHTML = '❌ No se pudo conectar al backend. ¿Está corriendo app.py?';
+                backendAlert.classList.remove('hidden');
+                
+                // Opcional: mantener los valores anteriores si existían
+                if (showToastMsg) {
+                    showToast('Error de conexión con el servidor local. Revisa que app.py esté ejecutándose.', true);
+                }
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Actualizar';
+                isLoading = false;
+            }
+        }
+
+        function updateRelativeTime() {
+            if (!lastUpdateTimestamp) { relativeTimeSpan.innerText = '--'; return; }
+            const diff = Math.floor((new Date() - lastUpdateTimestamp) / 1000);
+            if (diff < 60) relativeTimeSpan.innerText = `hace ${diff} seg`;
+            else if (diff < 3600) relativeTimeSpan.innerText = `hace ${Math.floor(diff/60)} min`;
+            else relativeTimeSpan.innerText = lastUpdateTimestamp.toLocaleTimeString('es-VE', {hour:'2-digit', minute:'2-digit'});
+        }
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('copy-toast');
+            toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-triangle text-amber-400' : 'fa-check-circle text-green-400'}"></i> <span>${msg}</span>`;
+            toast.style.opacity = '1';
+            setTimeout(() => toast.style.opacity = '0', 3000);
+        }
+
+        // Configurar inputs y eventos
+        setupInputField(originAmountInput);
+        setupInputField(vesAmountInput);
+        refreshBtn.addEventListener('click', () => loadRates(true));
+        shareBtn.addEventListener('click', () => {
+            const rate = getRate();
+            const text = `💵 ${currentCurrency} a Bs. ${rate ? format(rate,2) : '—'}  ·  BCVFastApp (BCV oficial)`;
+            if (navigator.share) navigator.share({ title: 'Tasa BCVFastApp', text, url: window.location.href }).catch(()=>{});
+            else navigator.clipboard?.writeText(text).then(() => showToast('📤 Información copiada'));
+        });
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.copyTarget;
+                const val = document.getElementById(id)?.value || '0';
+                navigator.clipboard?.writeText(val).then(() => showToast('📋 Copiado')).catch(() => showToast('Error', true));
+            });
+        });
+
+        // Inicializar: moneda USD activa y cargar datos
+        setActiveCurrency('USD');
+        loadRates(false);
+        
+        // Actualizar cada 5 minutos (coherente con caché del backend)
+        setInterval(() => { if (!isLoading) loadRates(false); }, 300000);
+        setInterval(updateRelativeTime, 30000);
+    })();
+</script>
+</body>
+</html>
